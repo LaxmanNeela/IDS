@@ -153,12 +153,6 @@ The exact command may depend on the local configuration of the project.
 
 This is a practical project that is actively being developed and improved. Some components may require additional configuration depending on the operating system, Python environment, network interface, and PostgreSQL setup.
 
-## Important Notes
-
-- Do not commit passwords, API keys, database credentials, tokens, or other secrets.
-- The `.env` file is intentionally excluded from this repository.
-- The Python virtual environment is intentionally excluded; dependencies are listed in `requirements.txt`.
-- The training dataset is not included in the repository.
 
 ## Author
 
