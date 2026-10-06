@@ -1,0 +1,7 @@
+venv/
+.env
+__pycache__/
+*.pyc
+*.log
+data/NSL_KDD.csv
+app/templates/temp_file.py

@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SentinelAI | Professional NIDS</title>
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Leaflet.js Map CSS & JS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        :root {
+            --bg-dark: #0f111a;
+            --card-bg: #161b22;
+            --accent-blue: #58a6ff;
+            --danger-red: #f85149;
+            --warning-gold: #d29922;
+            --border-color: #30363d;
+            --text-main: #c9d1d9;
+        }
+
+        body { 
+            background-color: var(--bg-dark); 
+            color: var(--text-main); 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+            padding-bottom: 50px;
+        }
+
+        .navbar-sentinel {
+            border-bottom: 1px solid var(--border-color);
+            padding: 1rem 2rem;
+            margin-bottom: 2rem;
+            background: var(--card-bg);
+        }
+
+        .stat-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 1.5rem;
+            transition: transform 0.2s;
+        }
+        .stat-card:hover { border-color: var(--accent-blue); }
+        .stat-label { color: #8b949e; font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; }
+        .stat-value { font-size: 2.2rem; font-weight: 800; margin-top: 5px; }
+
+        .card-custom {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            height: 100%;
+        }
+        .card-header-custom {
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid var(--border-color);
+            font-weight: 600;
+        }
+
+        .terminal-box {
+            background-color: #010409;
+            color: #3fb950;
+            font-family: 'SFMono-Regular', Consolas, monospace;
+            font-size: 0.9rem;
+            height: 420px;
+            overflow-y: auto;
+            padding: 15px;
+            border-radius: 0 0 12px 12px;
+        }
+        .log-entry { border-bottom: 1px solid #161b22; padding: 4px 0; }
+        
+        .form-control-dark {
+            background: #0d1117 !important;
+            border: 1px solid var(--border-color) !important;
+            color: var(--text-main) !important;
+        }
+        .form-control-dark:focus { border-color: var(--accent-blue); box-shadow: none; }
+        
+        .label-visible {
+            color: #c9d1d9;
+            font-weight: 600;
+            font-size: 0.85rem;
+            margin-bottom: 4px;
+            display: block;
+        }
+    </style>
+</head>
+<body>
+
+<nav class="navbar-sentinel d-flex justify-content-between align-items-center">
+    <div class="d-flex align-items-center">
+        <span style="font-size: 1.5rem; margin-right: 10px;">🛡️</span>
+        <h4 class="mb-0" style="letter-spacing: -1px;">SENTINEL<span class="text-primary">AI</span></h4>
+    </div>
+    <a href="/logout" class="btn btn-outline-secondary btn-sm">Sign Out</a>
+</nav>
+
+<div class="container-fluid px-4">
+    <!-- ROW 1: TOOLS -->
+    <div class="row g-4 mb-4">
+        <!-- Manual Prediction -->
+        <div class="col-lg-4">
+            <div class="card-custom">
+                <div class="card-header-custom">🔍 Manual Packet Inspection</div>
+                <div class="p-4">
+                    <form id="manualForm">
+                        <div class="row g-2 mb-3">
+                            <div class="col-6">
+                                <label class="label-visible">1. Protocol</label>
+                                <select class="form-select form-select-sm form-control-dark" name="protocol_type">
+                                    <option value="tcp" selected>TCP</option>
+                                    <option value="udp">UDP</option>
+                                    <option value="icmp">ICMP</option>
+                                </select>
+                            </div>
+                            <div class="col-6">
+                                <label class="label-visible">2. Service</label>
+                                <select class="form-select form-select-sm form-control-dark" name="service">
+                                    <option value="http" selected>HTTP</option>
+                                    <option value="eco_i">Eco_i</option>
+                                    <option value="private">Private</option>
+                                    <option value="smtp">SMTP</option>
+                                    <option value="ftp_data">FTP_Data</option>
+                                    <option value="domain_u">Domain_U</option>
+                                    <option value="other">Other</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="row g-2 mb-3">
+                            <div class="col-6">
+                                <label class="label-visible">3. Flag</label>
+                                <select class="form-select form-select-sm form-control-dark" name="flag">
+                                    <option value="SF" selected>SF (Normal)</option>
+                                    <option value="S0">S0</option>
+                                    <option value="REJ">REJ</option>
+                                    <option value="RSTR">RSTR</option>
+                                </select>
+                            </div>
+                            <div class="col-6">
+                                <label class="label-visible">4. Conn. Count</label>
+                                <input type="number" class="form-control form-control-sm form-control-dark" name="count" value="1">
+                            </div>
+                        </div>
+
+                        <div class="mb-4">
+                            <label class="label-visible">5 & 6. Payload (Src / Dst Bytes)</label>
+                            <div class="input-group input-group-sm">
+                                <input type="number" class="form-control form-control-dark" name="src_bytes" placeholder="Src" value="0">
+                                <input type="number" class="form-control form-control-dark" name="dst_bytes" placeholder="Dst" value="0">
+                            </div>
+                        </div>
+
+                        <button class="btn btn-primary w-100 btn-sm fw-bold">RUN ANALYSIS</button>
+                        <div id="manualResult"></div>
+                    </form>
+                <div class="card-custom mt-4">
+    <div class="card-header-custom">🛡️ Autonomous Mitigation Actions</div>
+    <div class="p-3">
+        <ul id="mitigationList" class="list-group list-group-flush bg-transparent small" style="font-family: monospace;">
+            <li class="text-secondary list-group-item bg-transparent border-secondary">// Engine listening for threats...</li>
+        </ul>
+    </div>
+</div>
+
+                    
+                </div>
+            </div>
+        </div>
+
+        <!-- Live Stream -->
+        <div class="col-lg-8">
+            <div class="card-custom">
+                <div class="card-header-custom d-flex justify-content-between align-items-center">
+                    <span>📡 Live Network Threat Stream</span>
+                    <button id="goLiveBtn" class="btn btn-success btn-sm fw-bold px-3" onclick="startSniffer()">GO LIVE STREAM</button>
+                    <button id="pauseBtn" class="btn btn-warning btn-sm fw-bold px-3">⏸ Pause</button>
+                    <button id="stopBtn" onclick="stopSniffer()" class="btn btn-danger btn-sm fw-bold px-3" disabled>⛔ Stop</button>       
+                </div>
+                <div id="logTerminal" class="terminal-box">
+                    <div class="text-secondary small italic">// Monitoring engine idle. Click 'GO LIVE STREAM' to begin...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ROW 2: METRICS -->
+    <div class="row g-4 mb-4 text-center">
+        <div class="col-md-4">
+            <div class="stat-card">
+                <div class="stat-label">Total Traffic Scanned</div>
+                <div id="stat-total" class="stat-value text-primary">{{ total }}</div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="stat-card">
+                <div class="stat-label">Anomalies Detected</div>
+                <div id="stat-attacks" class="stat-value text-danger">{{ attacks }}</div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="stat-card">
+                <div class="stat-label">Security Threat Rate</div>
+                <div id="stat-rate" class="stat-value text-warning">{{ attack_rate }}%</div>
+            </div>
+        </div>
+    </div>
+    <!-- NEW ROW: THREAT GEOLOCATION MAP -->
+    <div class="row g-4 mb-4">
+        <div class="col-12">
+            <div class="card-custom">
+                <div class="card-header-custom">🌐 Live Attack Geolocation Tracking</div>
+                <div class="p-3">
+                    <div id="map" style="height: 400px; width: 100%; border-radius: 8px;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- ROW 3: CHARTS -->
+    <div class="row g-4">
+        <div class="col-lg-8">
+            <div class="card-custom">
+                <div class="card-header-custom">📈 Real-time Attack Vector Trends</div>
+                <div class="p-3"><canvas id="attackTrendChart" height="110"></canvas></div>
+            </div>
+        </div>
+        <div class="col-lg-4">
+            <div class="card-custom">
+                <div class="card-header-custom">🎯 High-Risk Source IPs</div>
+                <div class="p-3"><canvas id="topIpChart"></canvas></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // ✅ GLOBAL CHART VARIABLES INITIALIZED TO PREVENT RUNTIME CRASHES
+    let trendChart = null;
+    let ipChart = null;// Initialize the map, centering it globally over the Atlantic Ocean
+    const map = L.map('map').setView([20.0, -10.0], 2);
+
+    // Use a dark map skin styling matching the SentinelAI core theme
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+        attribution: '&copy; OpenStreetMap contributors &copy; CARTO'
+    }).addTo(map);
+
+    // Keep track of layered map markers to prevent viewport cluttering
+    let activeMarkers = [];
+
+function plotThreatOnMap(ipAddress, isAttack) {
+    fetch('/api/geolocate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ip: ipAddress })
+    })
+    .then(res => res.json())
+    .then(geo => {
+        if (geo.status === 'success') {
+            // Dynamic styling based on packet status
+            const markerColor = isAttack ? '#f85149' : '#3fb950'; // Red for attack, Green for normal
+            const popupTitle = isAttack ? '⚠️ Threat Detected' : '✅ Normal Activity';
+
+            const dynamicMarker = L.circleMarker([geo.lat, geo.lon], {
+                color: markerColor,
+                fillColor: markerColor,
+                fillOpacity: isAttack ? 0.6 : 0.3, // Make normal traffic less distracting
+                radius: isAttack ? 8 : 5            // Make threat markers pop out more
+            }).addTo(map);
+
+            // Dynamically build the black text popup label
+            dynamicMarker.bindPopup(`
+                <b style="color:#000;">${popupTitle}</b><br>
+                <b>IP:</b> ${ipAddress}<br>
+                <b>Location:</b> ${geo.city}, ${geo.country}
+            `);
+            
+            // Only automatically open the popup if it's an actual threat
+            if (isAttack) {
+                dynamicMarker.openPopup();
+            }
+
+            activeMarkers.push(dynamicMarker);
+
+            // Housekeeping: drop oldest markers to prevent browser lag
+            if (activeMarkers.length > 40) {
+                const oldMarker = activeMarkers.shift();
+                map.removeLayer(oldMarker);
+            }
+        }
+    })
+    .catch(err => console.error("Map plotting failure:", err));
+}
+    let paused = false;
+
+    // ✅ ADDED: INTERCEPTIVE TRIGGER BLOCK FIREWALL FUNCTION
+    function triggerBlock(ipAddress) {
+        if (!confirm(`Are you sure you want to block IP: ${ipAddress}?`)) {
+            return;
+        }
+
+        fetch('/block-ip', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ ip: ipAddress })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                alert(`✅ Firewall Confirmed: ${data.message}`);
+            } else {
+                alert(`❌ Firewall Rejection: ${data.message}`);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('❌ Connection failed targeting firewall controller.');
+        });
+    }
+
+    function startSniffer() {
+        const btn = document.getElementById('goLiveBtn');
+        const stopBtn = document.getElementById("stopBtn");
+        btn.innerText = "STARTING...";
+        btn.disabled = true;
+        stopBtn.disabled = false;
+        
+        fetch('/run-sniffer', { method: 'POST' })
+        .then(response => response.json())
+        .then(data => {
+            const term = document.getElementById("logTerminal");
+
+            if (data.status === "success") {
+                btn.classList.replace('btn-success', 'btn-outline-warning');
+                btn.innerText = "STREAM ACTIVE";  
+
+                term.innerHTML += `
+                    <div class="text-info small">
+                        // SentinelAI Sniffer Started Successfully
+                    </div>
+                `;
+            } 
+            else if (data.status === "already_running") {
+                btn.classList.replace('btn-success', 'btn-outline-warning');
+                btn.innerText = "STREAM ACTIVE";
+
+                term.innerHTML += `
+                    <div class="text-warning small">
+                        // Sniffer Already Running
+                    </div>
+                `;
+            } 
+            else {
+                alert("Error: " + data.message);
+                btn.disabled = false;
+                btn.innerText = "GO LIVE STREAM";
+                btn.classList.replace('btn-outline-warning', 'btn-success');
+            }
+        });
+    }
+
+    document.getElementById("pauseBtn").addEventListener("click", function () {
+        if (!paused) {
+            fetch('/pause-sniffer', {method: 'POST'});
+            this.innerText = "▶ Resume";
+            paused = true;
+        } else {
+            fetch('/resume-sniffer', {method: 'POST'});
+            this.innerText = "⏸ Pause";
+            paused = false;
+        }
+    });
+
+    function stopSniffer() {
+        fetch('/stop-sniffer', {method: 'POST'})
+        .then(res => res.json())
+        .then(data => {
+            const goLiveBtn = document.getElementById("goLiveBtn");
+            const pauseBtn = document.getElementById("pauseBtn");
+            const stopBtn = document.getElementById("stopBtn");
+
+            goLiveBtn.disabled = false;
+            goLiveBtn.innerText = "GO LIVE STREAM";
+            goLiveBtn.classList.replace('btn-outline-warning', 'btn-success');
+
+            pauseBtn.innerText = "⏸ Pause";
+            paused = false;
+            stopBtn.disabled = true;
+
+            const term = document.getElementById("logTerminal");
+            term.innerHTML += `
+                <div class="text-danger small">
+                    // Sniffer Stopped
+                </div>
+            `;
+            alert("Sniffer Stopped");
+        });
+    }
+
+    function updateStats() {
+        fetch('/api/stats?nocache=' + new Date().getTime())
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) return;
+                document.getElementById('stat-total').innerText = data.total;
+                document.getElementById('stat-attacks').innerText = data.attacks;
+                document.getElementById('stat-rate').innerText = data.rate + "%";
+            });
+    }
+
+    setInterval(updateStats, 1000);
+    function updateMitigationLogs() {
+    fetch('/api/mitigations')
+        .then(res => res.json())
+        .then(data => {
+            const list = document.getElementById("mitigationList");
+            if(data.length === 0) return;
+            
+            list.innerHTML = data.map(item => {
+                const color = item.action === "Blocked" ? "text-danger" : "text-success";
+                const icon = item.action === "Blocked" ? "🚫" : "🔓";
+                return `<li class="list-group-item bg-transparent border-0 text-light p-1">
+                    [${item.time}] <span class="${color} fw-bold">${icon} ${item.action.toUpperCase()}</span> -> Target: <b>${item.ip}</b>
+                </li>`;
+            }).join('');
+        });
+}
+// Run update cycle every 3 seconds
+setInterval(updateMitigationLogs, 3000);
+    async function loadCharts() {
+        try {
+            const res = await fetch('/api/chart-data');
+            // ✅ Fix: Graceful handling if chart-data route isn't created in backend yet
+            if (res.status === 404) {
+                console.log("/api/chart-data route not implemented yet in app.py.");
+                return;
+            }
+            const data = await res.json();
+
+            // Safe checks before destroying non-existent chart objects
+            if(trendChart !== null) trendChart.destroy();
+
+            trendChart = new Chart(document.getElementById('attackTrendChart'), {
+                type: 'line',
+                data: {
+                    labels: data.trends.map(r => new Date(r.hour).getHours() + ":00"),
+                    datasets: [{
+                        label: 'Threats',
+                        data: data.trends.map(r => r.count),
+                        borderColor: '#58a6ff',
+                        backgroundColor: 'rgba(88, 166, 255, 0.1)',
+                        fill: true, tension: 0.4
+                    }]
+                },
+                options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+            });
+
+            if(ipChart !== null) ipChart.destroy();
+
+            ipChart = new Chart(document.getElementById('topIpChart'), {
+                type: 'doughnut',
+                data: {
+                    labels: data.top_ips.map(r => r.source_ip),
+                    datasets: [{
+                        data: data.top_ips.map(r => r.count),
+                        backgroundColor: ['#f85149', '#d29922', '#58a6ff', '#3fb950', '#8b949e']
+                    }]
+                },
+                options: { plugins: { legend: { position: 'bottom', labels: { color: '#8b949e' } } }, cutout: '70%' }
+            });
+        } catch (e) { console.error("Chart Error:", e); }
+    }
+
+    const source = new EventSource("/stream_logs");
+    source.onmessage = function(e) {
+        if(e.data.trim()) {
+            const div = document.createElement("div");
+            div.className = "log-entry";
+            div.innerHTML = e.data;
+            const term = document.getElementById("logTerminal");
+            term.appendChild(div);
+            term.scrollTop = term.scrollHeight;
+           const isAttack = !e.data.includes("Normal");
+
+            // Extract IP via Regular Expression from the stream data line
+            const ipRegex = /\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b/;
+            const match = e.data.match(ipRegex);
+            if (match) {
+                // Pass the isAttack flag to your mapping function
+                plotThreatOnMap(match[0], isAttack);
+            }
+        }
+    };
+
+    document.getElementById("manualForm")
+    .addEventListener("submit", async function(e) {
+        e.preventDefault();
+        const formData = new FormData(this);
+
+        try {
+            const response = await fetch("/predict_manual_ajax", {
+                method: "POST",
+                body: formData
+            });
+
+            const data = await response.json();
+            const resultDiv = document.getElementById("manualResult");
+
+            if(data.error){
+                alert(data.error);
+                return;
+            }
+
+            let colorClass = data.result.includes("Normal") ? "success" : "danger";
+
+            resultDiv.innerHTML = `
+                <div class="mt-3 p-3 rounded text-center
+                            bg-${colorClass}-subtle
+                            text-${colorClass}"
+                            style="border:1px solid currentColor;">
+                    <strong>${data.result}</strong>
+                    <br>
+                    <small>
+                        Confidence: ${data.probability}%
+                    </small>
+                </div>
+            `;
+        } catch(err) {
+            console.log(err);
+        }
+    });
+
+    loadCharts();
+    setInterval(loadCharts, 10000);
+</script>
+</body>
+</html>
